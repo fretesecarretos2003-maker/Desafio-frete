@@ -1,0 +1,749 @@
+html
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Desafio da Carga - Jogo da Memória & Foto</title>
+  
+  <!-- Dependências via CDN: Gerador de QR Code e Efeito de Confetes -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <style>
+    :root {
+      --navy-900: #0a192f;
+      --navy-800: #0f2b48;
+      --navy-700: #173e65;
+      --orange-500: #ff6b00;
+      --orange-600: #e05600;
+      --amber-400: #ffb703;
+      --slate-100: #f1f5f9;
+      --slate-200: #e2e8f0;
+      --slate-700: #334155;
+      --card-back: #0f2b48;
+      --card-border: #ffb703;
+      --success: #10b981;
+      --danger: #ef4444;
+      --radius: 16px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    body {
+      background-color: #070d18;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      min-height: 100dvh;
+      overflow: hidden;
+      color: #ffffff;
+    }
+
+    #app-container {
+      width: 100vw;
+      max-width: 480px;
+      height: 100vh;
+      height: 100dvh;
+      max-height: 960px;
+      background: linear-gradient(180deg, var(--navy-900) 0%, var(--navy-800) 100%);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+    }
+
+    .screen {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      height: 100%;
+      padding: 20px 18px;
+      text-align: center;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    .screen.active {
+      display: flex;
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Faixa de perigo / listras de logística */
+    .hazard-stripe {
+      width: 100%;
+      height: 6px;
+      background: repeating-linear-gradient(
+        -45deg,
+        var(--orange-500),
+        var(--orange-500) 12px,
+        #111 12px,
+        #111 24px
+      );
+      border-radius: 3px;
+    }
+
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 107, 0, 0.15);
+      border: 1px solid var(--orange-500);
+      color: var(--amber-400);
+      padding: 6px 14px;
+      border-radius: 30px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      color: #ffffff;
+      font-size: 1.9rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      line-height: 1.15;
+      margin-top: 10px;
+      letter-spacing: -0.5px;
+    }
+
+    h1 span {
+      color: var(--orange-500);
+      display: block;
+    }
+
+    p.lead {
+      color: var(--slate-200);
+      font-size: 0.95rem;
+      margin: 10px auto;
+      line-height: 1.45;
+      max-width: 330px;
+    }
+
+    .btn {
+      width: 100%;
+      max-width: 320px;
+      background: linear-gradient(135deg, var(--orange-500) 0%, var(--orange-600) 100%);
+      color: #ffffff;
+      border: none;
+      padding: 16px 24px;
+      font-size: 1.1rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      border-radius: 40px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      box-shadow: 0 8px 24px rgba(255, 107, 0, 0.4);
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+
+    .btn:active {
+      transform: scale(0.97);
+      box-shadow: 0 4px 12px rgba(255, 107, 0, 0.3);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      color: #ffffff;
+      box-shadow: none;
+    }
+
+    .btn-secondary:active {
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    /* Ícone visual do caminhão na abertura */
+    .truck-badge-box {
+      width: 120px;
+      height: 120px;
+      background: radial-gradient(circle, var(--navy-700) 0%, var(--navy-900) 100%);
+      border: 3px solid var(--orange-500);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3.8rem;
+      box-shadow: 0 0 30px rgba(255, 107, 0, 0.3);
+      position: relative;
+    }
+
+    .truck-badge-box::after {
+      content: 'EXPRESS';
+      position: absolute;
+      bottom: -8px;
+      background: var(--amber-400);
+      color: #000;
+      font-size: 0.65rem;
+      font-weight: 900;
+      padding: 2px 8px;
+      border-radius: 10px;
+      letter-spacing: 1px;
+    }
+
+    .game-stats-bar {
+      width: 100%;
+      background: rgba(15, 43, 72, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: var(--radius);
+      padding: 10px 16px;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(8px);
+    }
+
+    .stat-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .stat-label {
+      font-size: 0.7rem;
+      color: var(--amber-400);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stat-value {
+      font-size: 1.4rem;
+      font-weight: 900;
+      color: #ffffff;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .grid-container {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 9px;
+      width: 100%;
+      max-width: 400px;
+      margin: auto 0;
+      perspective: 1000px;
+    }
+
+    /* 14 cartas: as duas últimas centralizadas */
+    .card-item:nth-child(13) { grid-column: 2; }
+    .card-item:nth-child(14) { grid-column: 3; }
+
+    .card-item {
+      aspect-ratio: 1;
+      position: relative;
+      cursor: pointer;
+    }
+
+    .card-inner {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      border-radius: 12px;
+    }
+
+    .card-item.flipped .card-inner,
+    .card-item.matched .card-inner {
+      transform: rotateY(180deg);
+    }
+
+    .card-item.matched {
+      animation: pulseMatch 0.5s ease-in-out;
+    }
+
+    @keyframes pulseMatch {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.08); }
+      100% { transform: scale(1); }
+    }
+
+    .card-face {
+      position: absolute;
+      inset: 0;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+    }
+
+    /* Face de trás (virada para baixo) */
+    .card-front-design {
+      background: linear-gradient(145deg, #16385e, #0c233c);
+      border: 2px solid rgba(255, 183, 3, 0.4);
+      color: var(--amber-400);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .card-front-design .icon-logo {
+      font-size: 1.6rem;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+    }
+
+    /* Face da frente (revelada) */
+    .card-back-design {
+      background: #ffffff;
+      border: 2px solid var(--orange-500);
+      transform: rotateY(180deg);
+      padding: 4px;
+    }
+
+    .card-back-design .card-emoji {
+      font-size: 1.85rem;
+      line-height: 1;
+    }
+
+    .card-back-design .card-name {
+      font-size: 0.62rem;
+      font-weight: 800;
+      color: var(--navy-900);
+      text-transform: uppercase;
+      margin-top: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 90%;
+    }
+
+    .camera-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 360px;
+      aspect-ratio: 3 / 4;
+      border-radius: 20px;
+      overflow: hidden;
+      background: #000;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+      border: 3px solid var(--navy-700);
+      margin: auto 0;
+    }
+
+    #webcam-stream {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1); /* Efeito espelho para selfies */
+    }
+
+    /* Moldura visual em tempo real para a câmera */
+    .hud-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      border: 8px solid var(--orange-500);
+    }
+
+    .hud-top-bar {
+      background: var(--navy-900);
+      color: #fff;
+      padding: 8px;
+      text-align: center;
+      border-bottom: 3px solid var(--amber-400);
+    }
+
+    .hud-top-bar span {
+      font-size: 0.75rem;
+      font-weight: 900;
+      letter-spacing: 1px;
+      color: var(--amber-400);
+    }
+
+    .hud-bottom-bar {
+      background: rgba(10, 25, 47, 0.9);
+      padding: 10px;
+      text-align: center;
+      border-top: 3px solid var(--orange-500);
+    }
+
+    .hud-bottom-bar h3 {
+      font-size: 0.9rem;
+      font-weight: 900;
+      color: #ffffff;
+      text-transform: uppercase;
+    }
+
+    .countdown-overlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 6rem;
+      font-weight: 900;
+      color: #ffffff;
+      text-shadow: 0 0 25px rgba(255, 107, 0, 0.8), 0 0 40px rgba(0, 0, 0, 0.9);
+      pointer-events: none;
+      display: none;
+    }
+
+    .result-card-container {
+      width: 100%;
+      max-width: 360px;
+      background: rgba(15, 43, 72, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: var(--radius);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    #photo-result-img {
+      width: 100%;
+      max-width: 220px;
+      border-radius: 12px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.5);
+      border: 2px solid var(--amber-400);
+    }
+
+    .qr-badge-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 1px dashed rgba(255, 255, 255, 0.2);
+    }
+
+    #qrcode-box {
+      background: #ffffff;
+      padding: 6px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .qr-text {
+      text-align: left;
+    }
+
+    .qr-text h4 {
+      font-size: 0.85rem;
+      font-weight: 800;
+      color: var(--amber-400);
+      text-transform: uppercase;
+    }
+
+    .qr-text p {
+      font-size: 0.75rem;
+      color: var(--slate-200);
+      margin-top: 2px;
+      line-height: 1.25;
+    }
+
+    /* Diálogo / Modal sem usar alert() */
+    .custom-modal {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(5, 12, 24, 0.88);
+      backdrop-filter: blur(6px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .custom-modal.active {
+      display: flex;
+    }
+
+    .modal-box {
+      background: linear-gradient(160deg, var(--navy-800), var(--navy-900));
+      border: 2px solid var(--orange-500);
+      border-radius: 20px;
+      padding: 24px 20px;
+      text-align: center;
+      max-width: 320px;
+      width: 100%;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+    }
+
+    .modal-icon {
+      font-size: 3rem;
+      margin-bottom: 12px;
+    }
+
+    /* Canvas invisível para síntese da foto */
+    #hidden-render-canvas {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<div id="app-container">
+
+  <!-- ================= TELA 1: ABERTURA ================= -->
+  <section id="screen-start" class="screen active">
+    <div class="hazard-stripe"></div>
+
+    <div class="badge-pill">
+      <span>★</span> LOGÍSTICA & MUDANÇAS RÁPIDAS
+    </div>
+
+    <div class="truck-badge-box">
+      🚚
+    </div>
+
+    <div>
+      <h1>Desafio <span>da Carga</span></h1>
+      <p class="lead">
+        Encontre os <strong>7 pares de fretes e mudanças</strong> antes do cronômetro de 60 segundos zerar para garantir sua lembrança fotográfica oficial!
+      </p>
+    </div>
+
+    <button class="btn" id="btn-start" onclick="initCountdownPhase()">
+      INICIAR DESAFIO ⚡
+    </button>
+
+    <div class="hazard-stripe"></div>
+  </section>
+
+  <!-- ================= TELA 2: PREPARAÇÃO (3 SEGUNDOS) ================= -->
+  <section id="screen-memorize" class="screen">
+    <div class="hazard-stripe"></div>
+
+    <div>
+      <div class="badge-pill">ATENÇÃO À CARGA</div>
+      <h1>Memorize <span>os Itens!</span></h1>
+      <p class="lead">As cartas estão abertas. Você tem 3 segundos antes do carregamento fechar!</p>
+    </div>
+
+    <div style="font-size: 5rem; font-weight: 900; color: var(--amber-400); text-shadow: 0 0 20px rgba(255, 183, 3, 0.6);" id="memorize-timer-num">
+      3
+    </div>
+
+    <div class="grid-container" id="preview-grid" style="pointer-events: none; opacity: 0.95;">
+      <!-- Grid estático temporário para o preview -->
+    </div>
+
+    <div class="hazard-stripe"></div>
+  </section>
+
+  <!-- ================= TELA 3: JOGO DA MEMÓRIA ================= -->
+  <section id="screen-game" class="screen">
+    <div class="game-stats-bar">
+      <div class="stat-box">
+        <span class="stat-label">⏱ Tempo</span>
+        <span class="stat-value" id="game-clock">01:00</span>
+      </div>
+      <div style="height: 30px; width: 1px; background: rgba(255,255,255,0.2);"></div>
+      <div class="stat-box">
+        <span class="stat-label">📦 Pares Feitos</span>
+        <span class="stat-value" id="pairs-indicator">0/7</span>
+      </div>
+    </div>
+
+    <div class="grid-container" id="live-board-grid"></div>
+
+    <div style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--slate-200);">
+      <span>💡</span> Toque em duas cartas para encontrar o par correspondente
+    </div>
+  </section>
+
+  <!-- ================= TELA 4: CÂMERA & FOTO ================= -->
+  <section id="screen-camera" class="screen">
+    <div>
+      <div class="badge-pill" style="border-color: var(--success); color: #34d399;">
+        ✓ CARGA CONFERIDA COM SUCESSO
+      </div>
+      <h1>Sua Foto <span>Oficial</span></h1>
+      <p class="lead" style="margin: 4px auto 0;">Enquadre seu rosto para receber seu certificado de cliente nota 10!</p>
+    </div>
+
+    <div class="camera-wrapper">
+      <video id="webcam-stream" autoplay playsinline muted></video>
+      
+      <div class="hud-overlay">
+        <div class="hud-top-bar">
+          <span>★ FRETES, CARRETOS & MUDANÇAS ★</span>
+        </div>
+        <div class="hud-bottom-bar">
+          <h3>CLIENTE NOTA 10 • ENTREGA CONCLUÍDA</h3>
+        </div>
+      </div>
+
+      <div class="countdown-overlay" id="photo-countdown-display">3</div>
+    </div>
+
+    <button class="btn" id="btn-take-photo" onclick="startPhotoCaptureSequence()">
+      📷 TIRAR FOTO
+    </button>
+  </section>
+
+  <!-- ================= TELA 5: RESULTADO & QR CODE ================= -->
+  <section id="screen-result" class="screen">
+    <div>
+      <div class="badge-pill" style="border-color: var(--amber-400); color: var(--amber-400);">
+        ★ ENTREGA CONCLUÍDA COM NOTA MÁXIMA ★
+      </div>
+      <h1>Parabéns, <span>Campeão!</span></h1>
+    </div>
+
+    <div class="result-card-container">
+      <img id="photo-result-img" alt="Foto Oficial com Moldura">
+      
+      <div class="qr-badge-group">
+        <div id="qrcode-box"></div>
+        <div class="qr-text">
+          <h4>Escaneie pelo Celular</h4>
+          <p>Aponte a câmera para abrir ou clique no botão abaixo para baixar.</p>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 320px;">
+      <a class="btn" id="btn-download-link" download="minha-foto-frete-campeao.jpg" href="#">
+        💾 BAIXAR FOTO AGORA
+      </a>
+      <button class="btn btn-secondary" onclick="resetToInitialState()">
+        🔄 JOGAR NOVAMENTE
+      </button>
+    </div>
+  </section>
+
+  <!-- ================= MODAL DE TEMPO ESGOTADO ================= -->
+  <div class="custom-modal" id="modal-timeout">
+    <div class="modal-box">
+      <div class="modal-icon">⏳</div>
+      <h2 style="text-transform: uppercase; color: var(--orange-500); margin-bottom: 8px;">Tempo Esgotado!</h2>
+      <p style="font-size: 0.9rem; color: var(--slate-200); margin-bottom: 20px;">
+        A carga atrasou! O cronômetro de 60 segundos zerou antes de encontrar todos os 7 pares.
+      </p>
+      <button class="btn" onclick="retryGame()">TENTAR NOVAMENTE 🚀</button>
+    </div>
+  </div>
+
+  <!-- Canvas interno de renderização fotográfica -->
+  <canvas id="hidden-render-canvas" width="900" height="1200"></canvas>
+</div>
+
+<script>
+  // Itens temáticos de Fretes, Carretos & Mudanças
+  const LOGISTICS_ITEMS = [
+    { label: "Caminhão Baú", icon: "🚚" },
+    { label: "Utilitário",    icon: "🛻" },
+    { label: "Caixas",        icon: "📦" },
+    { label: "Móveis & Sofá", icon: "🛋️" },
+    { label: "Carrinho",      icon: "🛒" },
+    { label: "Rota Express",  icon: "📍" },
+    { label: "Carga Segura",  icon: "🔒" }
+  ];
+
+  let gameCards = [];
+  let firstFlipped = null;
+  let secondFlipped = null;
+  let matchesCount = 0;
+  let isBoardLocked = false;
+  let gameTimerInterval = null;
+  let remainingSeconds = 60;
+  let mediaStream = null;
+
+  // Gerenciamento de Telas
+  function switchScreen(targetId) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    const target = document.getElementById(targetId);
+    if (target) {
+      target.classList.add('active');
+    }
+  }
+
+  // Algoritmo Fisher-Yates de embaralhamento
+  function shuffleArray(array) {
+    const copy = [...array];
+    for (let i = copy.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
+  }
+
+  function createCardElement(item, isInitiallyFlipped = false) {
+    const cardEl = document.createElement('div');
+    cardEl.className = `card-item ${isInitiallyFlipped ? 'flipped' : ''}`;
+    cardEl.dataset.label = item.label;
+
+    cardEl.innerHTML = `
+      <div class="card-inner">
+        <div class="card-face card-front-design">
+          <div class="icon-logo">📦</div>
+        </div>
+        <div class="card-face card-back-design">
+          <div class="card-emoji">${item.icon}</div>
+          <div class="card-name">${item.label}</div>
+        </div>
+      </div>
+    `;
+
+    return cardEl;
+  }
+
+  // Fase 1: Prévia com contagem regressiva de 3s
+  function initCountdownPhase() {
+    switchScreen('screen-memorize');
+    
+    // Gerar 14 cartas (7 pares)
+    const combined = [...LOGISTICS_ITEMS, ...LOGISTICS_ITEMS];
+    gameCards = shuffleArray(combined);
+
+    // Preenche o grid de memorização
+    const previewGrid = document.getElementById('preview-grid');
+    previewGrid.innerHTML = '';
+    gameCards.forEach(item => {
+      previewGrid.appendChild(createCardElement(item, true)); // Todas abertas
+    });
+
+    let count = 3;
+    const timerNumEl = document.getElementById('memorize-timer-num');
+    timerNumEl.innerText = count;
+
+    const interval = setInterval(() => {
+      count--;
+      if (count > 0) {
+        timerNumEl.innerText = count;
+      } else {
+        clearInterval(interval);
+        startActualGame();
+      }
+    }, 1000);
+  }
+
+  // Fase 2: Início do Jogo Ativo
+  function startActualGame() {
+    switchScreen('screen-game');
+
+    matchesCount = 
