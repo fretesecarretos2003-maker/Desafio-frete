@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Desafio da Carga - Jogo da Memória & Foto</title>
+
+  <!-- Bibliotecas externas via CDN: QR Code e Confetes -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <style>
+    :root {
+      --navy: #0a192f;
+      --navy-light: #172a45;
+      --orange: #ff6b00;
+      --amber: #ffb703;
+      --card-back: #1e3a8a;
+      --white: #ffffff;
+      --gray-light: #f1f5f9;
+      --radius: 14px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: #050b14;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      min-height: 100dvh;
+      overflow: hidden;
+    }
+
+    #app-container {
+      width: 100vw;
+      max-width: 440px;
+      height: 100vh;
+      height: 100dvh;
+      max-height: 900px;
+      background: radial-gradient(circle at top, #112240 0%, var(--navy) 100%);
+      color: var(--white);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
+      overflow: hidden;
+    }
+
+    .warning-tape {
+      width: 100%;
+      height: 10px;
+      background: repeating-linear-gradient(
+        -45deg,
+        var(--orange),
+        var(--orange) 12px,
+        #111 12px,
+        #111 24px
+      );
+      flex-shrink: 0;
+    }
+
+    .screen {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      height: 100%;
+      padding: 20px 16px;
+      text-align: center;
+      overflow-y: auto;
+    }
+
+    .screen.active {
+      display: flex;
+    }
+
+    .brand-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 107, 0, 0.15);
+      border: 1px solid var(--orange);
+      padding: 6px 14px;
+      border-radius: 30px;
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--amber);
+      margin-top: 10px;
+    }
+
+    h1 {
+      font-size: 2.1rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      line-height: 1.1;
+      margin: 12px 0 6px;
+    }
+
+    h1 span {
+      color: var(--orange);
+      display: block;
+    }
+
+    p.subtitle {
+      color: #94a3b8;
+      font-size: 0.95rem;
+      line-height: 1.4;
+      max-width: 320px;
+      margin: 0 auto;
+    }
+
+    .btn {
+      width: 100%;
+      max-width: 320px;
+      background: linear-gradient(135deg, var(--orange), #e05300);
+      color: var(--white);
+      border: none;
+      padding: 16px 24px;
+      font-size: 1.1rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      border-radius: 40px;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(255, 107, 0, 0.4);
+      transition: transform 0.1s;
+    }
+
+    .btn:active {
+      transform: scale(0.97);
+    }
+
+    .hero-art {
+      width: 140px;
+      height: 140px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 3px solid var(--orange);
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: 20px auto;
+      box-shadow: 0 0 30px rgba(255, 107, 0, 0.25);
+    }
+
+    .hero-art .truck-icon { font-size: 3.5rem; }
+
+    .countdown-box {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: var(--navy-light);
+      border: 4px solid var(--amber);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 4rem;
+      font-weight: 900;
+      color: var(--amber);
+      margin: auto;
+      box-shadow: 0 0 30px rgba(255, 183, 3, 0.3);
+    }
+
+    .hud {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      background: var(--navy-light);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 10px 16px;
+      border-radius: 12px;
+      margin-bottom: 10px;
+    }
+
+    .hud-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .hud-label {
+      font-size: 0.7rem;
+      color: #94a3b8;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .hud-val {
+      font-size: 1.3rem;
+      font-weight: 900;
+      color: var(--amber);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      width: 100%;
+      margin: auto 0;
+    }
+
+    .card:nth-child(13) { grid-column: 2; }
+    .card:nth-child(14) { grid-column: 3; }
+
+    .card {
+      aspect-ratio: 1;
+      perspective: 800px;
+      cursor: pointer;
+    }
+
+    .card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      transform-style: preserve-3d;
+      border-radius: var(--radius);
+    }
+
+    .card.flipped .card-inner,
+    .card.matched .card-inner {
+      transform: rotateY(180deg);
+    }
+
+    .card-face {
+      position: absolute;
+      inset: 0;
+      backface-visibility: hidden;
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
+    }
+
+    .card-front {
+      background: linear-gradient(145deg, #1e3a8a, #0f172a);
+      border: 2px solid rgba(255, 183, 3, 0.4);
+      color: var(--amber);
+      font-size: 1.4rem;
+      font-weight: 900;
+    }
+
+    .card-back {
+      background: #ffffff;
+      transform: rotateY(180deg);
+      border: 2px solid var(--orange);
+    }
+
+    .card-back .icon { font-size: 1.7rem; }
+    .card-back .label {
+      font-size: 0.6rem;
+      font-weight: 800;
+      color: #0f172a;
+      text-transform: uppercase;
+      margin-top: 2px;
+      white-space: nowrap;
+    }
+
+    .cam-viewport {
+      position: relative;
+      width: 100%;
+      max-width: 320px;
+      aspect-ratio: 3 / 4;
+      border-radius: 16px;
+      overflow: hidden;
+      background: #000;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+      margin: auto;
+    }
+
+    #video-feed {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+
+    .frame-preview {
+      position: absolute;
+      inset: 0;
+      border: 12px solid var(--orange);
+      border-top-width: 24px;
+      border-bottom-width: 50px;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px;
+    }
+
+    .frame-preview .top-text {
+      background: var(--navy);
+      color: var(--amber);
+      font-size: 0.75rem;
+      font-weight: 800;
+      padding: 2px 10px;
+      border-radius: 8px;
+    }
+
+    .frame-preview .bottom-text {
+      color: var(--navy);
+      font-size: 0.85rem;
+      font-weight: 900;
+      letter-spacing: 1px;
+    }
+
+    .timer-overlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 5rem;
+      font-weight: 900;
+      color: #ffffff;
+      text-shadow: 0 0 20px rgba(0,0,0,0.8);
+    }
+
+    .result-card {
+      background: var(--navy-light);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 14px;
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      max-width: 320px;
+      margin: auto;
+    }
+
+    #final-photo {
+      width: 150px;
+      border-radius: 8px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    }
+
+    #qrcode-area {
+      background: #ffffff;
+      padding: 8px;
+      border-radius: 8px;
+    }
+
+    .modal-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(5, 11, 20, 0.9);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 100;
+    }
+
+    .modal-content {
+      background: var(--navy-light);
+      border: 2px solid var(--orange);
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+      max-width: 300px;
+    }
+
+    #render-canvas { display: none; }
+  </style>
+</head>
+<body>
+
+<div id="app-container">
+  <div class="warning-tape"></div>
+
+  <!-- TELA 1: ABERTURA -->
+  <section id="screen-start" class="screen active">
+    <div>
+      <div class="brand-badge">★ Logística & Mudanças Rápidas</div>
+      <div class="hero-art">
+        <div class="truck-icon">🚚</div>
+      </div>
+      <h1>Desafio <span>da Carga</span></h1>
+      <p class="subtitle">Encontre os 7 pares de fretes e mudanças antes do tempo acabar e garanta sua lembrança fotográfica oficial!</p>
+    </div>
+    <button class="btn" onclick="startMemorization()">Iniciar Desafio ⚡</button>
+  </section>
+
+  <!-- TELA 2: MEMORIZAÇÃO -->
+  <section id="screen-countdown" class="screen">
+    <div>
+      <div class="brand-badge">Atenção ao Mapa</div>
+      <h1 style="font-size: 1.8rem;">Decore a <span>Posição</span></h1>
+      <p class="subtitle">Você tem 3 segundos para memorizar os pares das cargas.</p>
+    </div>
+    <div class="countdown-box" id="prep-timer">3</div>
+    <div style="height: 40px;"></div>
+  </section>
+
+  <!-- TELA 3: O JOGO -->
+  <section id="screen-game" class="screen">
+    <div class="hud">
+      <div class="hud-item">
+        <span class="hud-label">Tempo Restante</span>
+        <span class="hud-val" id="timer-display">01:00</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">Cargas Entregues</span>
+        <span class="hud-val" id="pairs-display">0/7</span>
+      </div>
+    </div>
+    <div class="grid" id="grid"></div>
+    <p class="subtitle" style="font-size: 0.8rem;">Toque para revelar e combinar os pares</p>
+  </section>
+
+  <!-- TELA 4: CÂMERA -->
+  <section id="screen-cam" class="screen">
+    <div>
+      <div class="brand-badge" style="border-color:#22c55e; color:#22c55e;">Missão Cumprida</div>
+      <h1 style="font-size: 1.8rem;">Carga <span>Entregue!</span></h1>
+      <p class="subtitle">Posicione-se para a foto oficial de motorista/cliente nota 10.</p>
+    </div>
+    <div class="cam-viewport">
+      <video id="video-feed" autoplay playsinline muted></video>
+      <div class="frame-preview">
+        <div class="top-text">FRETES & MUDANÇAS</div>
+        <div class="bottom-text">CLIENTE NOTA 10 ★</div>
+      </div>
+      <div class="timer-overlay" id="snap-countdown"></div>
+    </div>
+    <button class="btn" id="btn-snap" onclick="triggerPhotoCountdown()">Tirar Foto 📸</button>
+  </section>
+
+  <!-- TELA 5: RESULTADO E QR CODE -->
+  <section id="screen-result" class="screen">
+    <div>
+      <h1 style="color: var(--amber); font-size: 1.8rem;">Lembrança <span>Pronta!</span></h1>
+      <p class="subtitle">Aponte a câmera do celular para o QR Code para baixar sua lembrança.</p>
+    </div>
+    <div class="result-card">
+      <img id="final-photo" alt="Foto final com moldura">
+      <div id="qrcode-area"></div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:8px; width:100%; max-width:320px;">
+      <button class="btn" onclick="downloadPhotoDirectly()">Baixar Imagem ⬇</button>
+      <button class="btn" style="background:transparent; border:1px solid #94a3b8; box-shadow:none;" onclick="resetAll()">Jogar Novamente</button>
+    </div>
+  </section>
+
+  <!-- MODAL TEMPO ESGOTADO -->
+  <div class="modal-overlay" id="modal-gameover">
+    <div class="modal-content">
+      <div style="font-size: 3rem; margin-bottom: 10px;">⏰</div>
+      <h2 style="color: var(--orange); margin-bottom: 8px;">Tempo Esgotado!</h2>
+      <p class="subtitle" style="margin-bottom: 20px;">O caminhão partiu antes de você encontrar todos os pares.</p>
+      <button class="btn" onclick="closeGameOverModal()">Tentar Novamente</button>
+    </div>
+  </div>
+
+  <div class="warning-tape"></div>
+  <canvas id="render-canvas" width="720" height="960"></canvas>
+</div>
+
+<script>
+  const ITEMS = [
+    { label: "Caminhão Baú", icon: "🚚" },
+    { label: "Utilitário",    icon: "🛻" },
+    { label: "Caixas",        icon: "📦" },
+    { label: "Móveis",        icon: "🛋️" },
+    { label: "Carrinho",      icon: "🛒" },
+    { label: "Rota Express",  icon: "📍" },
+    { label: "Carga Segura",  icon: "🔒" }
+  ];
+
+  let deck = [];
+  let openCards = [];
+  let matchedCount = 0;
+  let isBoardLocked = false;
+  let timerInterval = null;
+  let secondsRemaining = 60;
+  let streamRef = null;
+  let lastGeneratedPhotoUrl = "";
+
+  function setScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+
+  function startMemorization() {
+    setScreen('screen-countdown');
+    let prepSeconds = 3;
+    const prepEl = document.getElementById('prep-timer');
+    prepEl.innerText = prepSeconds;
+    setupGameBoard();
+
+    const interval = setInterval(() => {
+      prepSeconds--;
+      if (prepSeconds > 0) {
+        prepEl.innerText = prepSeconds;
+      } else {
+        clearInterval(interval);
+        startActualGame();
+      }
+    }, 1000);
+  }
+
+  function setupGameBoard() {
+    matchedCount = 0;
+    openCards = [];
+    isBoardLocked = false;
+    document.getElementById('pairs-display').innerText = `0/${ITEMS.length}`;
+
+    deck = [...ITEMS, ...ITEMS]
+      .sort(() => Math.random() - 0.5)
+      .map((item, index) => ({ ...item, uniqueId: index }));
+
+    const grid = document.getElementById('grid');
+    grid.innerHTML = '';
+
+    deck.forEach(item => {
+      const card = document.createElement('div');
+      card.className = 'card flipped';
+      card.dataset.label = item.label;
+
+      card.innerHTML = `
+        <div class="card-inner">
+          <div class="card-face card-front">⚡</div>
+          <div class="card-face card-back">
+            <div class="icon">${item.icon}</div>
+            <div class="label">${item.label}</div>
+          </div>
+        </div>
+      `;
+      card.addEventListener('click', () => handleCardClick(card));
+      grid.appendChild(card);
+    });
+  }
+
+  function startActualGame() {
+    setScreen('screen-game');
+    setTimeout(() => {
+      document.querySelectorAll('.card').forEach(c => c.classList.remove('flipped'));
+    }, 600);
+
+    secondsRemaining = 60;
+    renderTimer();
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      secondsRemaining--;
+      renderTimer();
+      if (secondsRemaining <= 0) {
+        clearInterval(timerInterval);
+        document.getElementById('modal-gameover').style.display = 'flex';
+      }
+    }, 1000);
+  }
+
+  function renderTimer() {
+    const mins = String(Math.floor(secondsRemaining / 60)).padStart(2, '0');
+    const secs = String(secondsRemaining % 60).padStart(2, '0');
+    document.getElementById('timer-display').innerText = `${mins}:${secs}`;
+  }
+
+  function handleCardClick(card) {
+    if (isBoardLocked || card.classList.contains('flipped') || card.classList.contains('matched')) return;
+
+    card.classList.add('flipped');
+    openCards.push(card);
+
+    if (openCards.length === 2) {
+      isBoardLocked = true;
+      const [first, second] = openCards;
+
+      if (first.dataset.label === second.dataset.label) {
+        first.classList.add('matched');
+        second.classList.add('matched');
+        matchedCount++;
+        document.getElementById('pairs-display').innerText = `${matchedCount}/${ITEMS.length}`;
+        openCards = [];
+        isBoardLocked = false;
+
+        if (matchedCount === ITEMS.length) {
+          clearInterval(timerInterval);
+          setTimeout(initCameraPhase, 700);
+        }
+      } else {
+        setTimeout(() => {
+          first.classList.remove('flipped');
+          second.classList.remove('flipped');
+          openCards = [];
+          isBoardLocked = false;
+        }, 850);
+      }
+    }
+  }
+
+  async function initCameraPhase() {
+    setScreen('screen-cam');
+    document.getElementById('btn-snap').style.display = 'inline-block';
+    const video = document.getElementById('video-feed');
+
+    try {
+      streamRef = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 1280 }, height: { ideal: 960 }, facingMode: "user" },
+        audio: false
+      });
+      video.srcObject = streamRef;
+    } catch (err) {
+      console.warn("Câmera indisponível:", err);
+      triggerFallbackCanvas();
+    }
+  }
+
+  function triggerPhotoCountdown() {
+    document.getElementById('btn-snap').style.display = 'none';
+    let count = 3;
+    const snapDisplay = document.getElementById('snap-countdown');
+    snapDisplay.innerText = count;
+
+    const interval = setInterval(() => {
+      count--;
+      if (count > 0) {
+        snapDisplay.innerText = count;
+      } else {
+        clearInterval(interval);
+        snapDisplay.innerText = '';
+        bakePhotoCanvas();
+      }
+    }, 1000);
+  }
+
+  function bakePhotoCanvas() {
+    const video = document.getElementById('video-feed');
+    const canvas = document.getElementById('render-canvas');
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width;
+    const h = canvas.height;
+
+    // Desenha vídeo da câmera espelhado
+    ctx.save();
+    ctx.translate(w, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, 0, 0, w, h);
+    ctx.restore();
+
+    // Moldura
+    ctx.lineWidth = 30;
+    ctx.strokeStyle = '#ff6b00';
+    ctx.strokeRect(0, 0, w, h);
+
+    // Faixa Superior
+    ctx.fillStyle = '#0a192f';
+    ctx.fillRect(15, 15, w - 30, 95);
+    ctx.fillStyle = '#ffb703';
+    ctx.font = '900 32px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('FRETES, CARRETOS & MUDANÇAS', w / 2, 72);
+
+    // Rodapé
+    ctx.fillStyle = 'rgba(10, 25, 47, 0.9)';
+    ctx.fillRect(15, h - 130, w - 30, 115);
+    ctx.fillStyle = '#ff6b00';
+    ctx.font = '900 28px sans-serif';
+    ctx.fillText('CLIENTE NOTA 10 ★ DESAFIO CONCLUÍDO', w / 2, h - 75);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '20px sans-serif';
+    const now = new Date();
+    ctx.fillText(now.toLocaleDateString('pt-BR') + ' - ' + now.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}), w / 2, h - 35);
+
+    lastGeneratedPhotoUrl = canvas.toDataURL('image/jpeg', 0.9);
+    document.getElementById('final-photo').src = lastGeneratedPhotoUrl;
+
+    if (streamRef) {
+      streamRef.getTracks().forEach(t => t.stop());
+    }
+
+    renderQRCode();
+    setScreen('screen-result');
+    confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+  }
+
+  function triggerFallbackCanvas() {
+    const canvas = document.getElementById('render-canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#172a45';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    bakePhotoCanvas();
+  }
+
+  function renderQRCode() {
+    const area = document.getElementById('qrcode-area');
+    area.innerHTML = '';
+    new QRCode(area, {
+      text: window.location.href,
+      width: 120,
+      height: 120,
+      colorDark: "#0a192f",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  }
+
+  function downloadPhotoDirectly() {
+    const a = document.createElement('a');
+    a.href = lastGeneratedPhotoUrl;
+    a.download = 'fretes-desafio-foto.jpg';
+    a.click();
+  }
+
+  function closeGameOverModal() {
+    document.getElementById('modal-gameover').style.display = 'none';
+    resetAll();
+  }
+
+  function resetAll() {
+    clearInterval(timerInterval);
+    if (streamRef) {
+      streamRef.getTracks().forEach(t => t.stop());
+    }
+    setScreen('screen-start');
+  }
+</script>
+</body>
+</html>
